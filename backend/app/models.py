@@ -32,7 +32,20 @@ class TodoUpdate(BaseModel):
     priority: Optional[str] = None
 
 
+class ChatMessage(BaseModel):
+    """历史对话里的一条消息（只有 user / assistant 两种）"""
+
+    role: str = Field(..., description="user 或 assistant")
+    content: str = Field(..., max_length=4000)
+
+
 class ChatRequest(BaseModel):
-    """AI 聊天接口的请求体"""
+    """
+    AI 聊天接口的请求体。
+
+    history 是多轮对话的关键：大模型本身没有记忆，
+    "它记得上一句"的本质就是前端把之前的问答一起发过来。
+    """
 
     message: str = Field(..., min_length=1, max_length=2000, description="用户对智能体说的话")
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20, description="之前的对话")

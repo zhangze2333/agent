@@ -44,13 +44,16 @@ def is_configured() -> bool:
     return client is not None
 
 
-def chat(messages: list, tools: list | None = None):
+def chat(messages: list, tools: list | None = None, stream: bool = False):
     """
     调用大模型。
     messages: 完整对话历史（大模型是无状态的，每次都要把历史带上它才"记得"之前说过什么）
     tools:    可选，告诉大模型它能调用哪些工具（见 tools.py）
+    stream:   True 时返回"增量碎片"的可迭代对象（流式），False 时返回完整结果
     """
     kwargs = {"model": MODEL, "messages": messages}
     if tools:
         kwargs["tools"] = tools
+    if stream:
+        kwargs["stream"] = True
     return client.chat.completions.create(**kwargs)
