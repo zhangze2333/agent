@@ -17,7 +17,7 @@ import ChatMessage from '../components/ChatMessage.vue'
 const messages = ref([])      // 对话记录：[{role, content, actions}]
 const input = ref('')
 const sending = ref(false)    // true 时禁用输入，防连发
-const steps = ref([])         // 智能体执行步骤清单：[{text, done}]，逐条堆叠显示
+const steps = ref([])         // 执行过程清单：[{text, state}]，像 todo 列表一样逐条打勾
 const listRef = ref(null)     // 消息列表的 DOM，用来自动滚动
 
 async function scrollToBottom() {
@@ -25,31 +25,35 @@ async function scrollToBottom() {
   listRef.value?.scrollTo({ top: listRef.value.scrollHeight, behavior: 'smooth' })
 }
 
-// 把后端的 status 事件落到"步骤清单"里。
-// 设计要点：已完成的步骤保留在列表上（打勾），而不是被下一条状态覆盖——
-// 否则"调用工具"和"执行完成"间隔只有几毫秒，人眼根本看不到
+// 把清单里所有步骤标记为完成（打绿勾）
+function finishAllSteps() {
+  steps.value.forEach((s) => (s.state = 'done'))
+}
+
+const TOOL_NAMES = {
+  add_todo: '创建待办',
+  list_todos: '查询待办',
+  complete_todo: '完成待办',
+  delete_todo: '删除待办',
+}
+
+// 把后端的 status 事件落到"执行清单"里。
+// 每个步骤有 state：active=进行中（转圈） done=已完成（绿勾）。
+// 已完成的步骤永远保留在清单上——这是给用户的"施工记录"
 function onStatus(p) {
   if (p.step === 'thinking') {
-    const last = steps.value[steps.value.length - 1]
-    const hasTool = steps.value.some((s) => s.tool)
-    // 调用工具后的"思考"其实是在组织回复，文案区分一下
-    if (!last || last.done) {
-      steps.value.push({ text: hasTool ? '🤔 正在组织回复…' : '🤔 正在思考…', done: false })
-    }
+    finishAllSteps()
+    const organized = steps.value.some((s) => s.tool) // 调过工具后的思考 = 在组织回复
+    steps.value.push({ text: organized ? '组织最终回复' : '分析问题', state: 'active' })
   } else if (p.step === 'tool') {
-    steps.value.forEach((s) => (s.done = true)) // 之前的步骤都完成了
-    const names = {
-      add_todo: '➕ 创建待办',
-      list_todos: '🔍 查询待办',
-      complete_todo: '✅ 完成待办',
-      delete_todo: '🗑️ 删除待办',
-    }
+    finishAllSteps()
+    const name = TOOL_NAMES[p.name] || p.name
     const argsText = Object.entries(p.args || {})
       .map(([k, v]) => `${k}=${v}`)
-      .join(', ')
-    steps.value.push({ text: `${names[p.name] || p.name}（${argsText}）`, done: false, tool: true })
+      .join('，')
+    steps.value.push({ text: `${name}：${argsText}`, state: 'active', tool: true })
   } else if (p.step === 'tool_result') {
-    steps.value.forEach((s) => (s.done = true))
+    finishAllSteps() // 工具执行完成 → 该步骤立刻打上绿勾（并永久保留）
   }
 }
 
@@ -74,7 +78,7 @@ function handleSseBlock(block, aiMsg) {
     aiMsg.reasoning += payload.text
     scrollToBottom()
   } else if (event === 'delta') {
-    steps.value.forEach((s) => (s.done = true)) // 开始出字了，前置步骤都算完成
+    finishAllSteps() // 开始出字了，前置步骤都算完成
     aiMsg.content += payload.text // 真流式的核心：边收边显示
     scrollToBottom()
   } else if (event === 'done') {
@@ -99,7 +103,7 @@ async function handleSend() {
   messages.value.push({ role: 'user', content: text })
   input.value = ''
   sending.value = true
-  steps.value = [] // 新一轮对话，步骤清单从零开始
+  steps.value = [] // 新一轮对话，执行清单从零开始（上一轮的随回复完成已被清掉）
   scrollToBottom()
 
   // AI 的气泡先以"空壳"出现，内容随后由流式数据填充
@@ -145,7 +149,8 @@ async function handleSend() {
     aiMsg.content = `⚠️ ${err.name === 'TimeoutError' ? '请求超时了，请重试' : err.message || '网络错误，请检查后端是否启动'}`
   } finally {
     sending.value = false
-    steps.value = [] // 完整回复和动作标签已入列，步骤清单完成使命
+    // 注意：这里故意【不】清空 steps——执行清单保留在页面上，
+    // 作为这次回答的"施工记录"，直到下次发送时才重新开始
     scrollToBottom()
   }
 }
@@ -173,10 +178,18 @@ function quickAsk(text) {
 
       <ChatMessage v-for="(msg, i) in messages" :key="i" :msg="msg" />
 
-      <!-- 智能体执行过程：逐步堆叠的清单，完成的打勾 -->
-      <div v-if="sending && steps.length" class="steps">
-        <div v-for="(s, i) in steps" :key="i" class="step" :class="{ done: s.done }">
-          <span class="step-mark">{{ s.done ? '✓' : '⏳' }}</span>{{ s.text }}
+      <!-- 智能体执行过程：todo 列表式清单，进行中转圈、完成打绿勾，完成后保留 -->
+      <div v-if="steps.length" class="steps-card">
+        <div class="steps-title">🤖 执行过程</div>
+        <div
+          v-for="(s, i) in steps"
+          :key="i"
+          class="step-row"
+          :class="{ active: s.state === 'active', done: s.state === 'done' }"
+        >
+          <span v-if="s.state === 'done'" class="check-badge">✓</span>
+          <span v-else class="spinner"></span>
+          <span class="step-text">{{ s.text }}</span>
         </div>
       </div>
     </div>
@@ -229,26 +242,79 @@ function quickAsk(text) {
   gap: 10px;
 }
 
-/* 步骤清单：每行一个步骤，完成的变灰打勾 */
-.steps {
-  padding: 4px 0 8px 46px;
+/* ───── 执行过程清单卡片 ───── */
+.steps-card {
+  margin: 4px 0 8px 46px;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  padding: 10px 14px;
+  max-width: 75%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.steps-title {
+  font-size: 12px;
+  color: #909399;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.step-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.step {
-  color: #606266;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
   font-size: 13px;
+  color: #606266;
 }
 
-.step.done {
-  color: #c0c4cc;
+.step-row + .step-row {
+  margin-top: 2px;
 }
 
-.step-mark {
-  display: inline-block;
-  width: 22px;
+/* 进行中的步骤：浅蓝底高亮 */
+.step-row.active {
+  background: #ecf5ff;
+  color: #303133;
+  font-weight: 500;
+}
+
+.step-row.done {
+  color: #909399;
+}
+
+/* 已完成的绿勾：绿色圆形徽章，醒目 */
+.check-badge {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #67c23a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* 进行中的转圈动画 */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #dcdfe6;
+  border-top-color: #409eff;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .input-bar {
