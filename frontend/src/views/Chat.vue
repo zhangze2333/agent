@@ -69,6 +69,10 @@ function handleSseBlock(block, aiMsg) {
   if (event === 'status') {
     onStatus(payload)
     scrollToBottom()
+  } else if (event === 'reasoning') {
+    // 模型的深度思考过程：累积到气泡的 reasoning 字段，思考块里实时展示
+    aiMsg.reasoning += payload.text
+    scrollToBottom()
   } else if (event === 'delta') {
     steps.value.forEach((s) => (s.done = true)) // 开始出字了，前置步骤都算完成
     aiMsg.content += payload.text // 真流式的核心：边收边显示
@@ -100,7 +104,7 @@ async function handleSend() {
 
   // AI 的气泡先以"空壳"出现，内容随后由流式数据填充
   // （必须用 reactive() 包裹，否则修改 content 界面不更新——Vue3 响应式陷阱，v0.1 踩过）
-  const aiMsg = reactive({ role: 'assistant', content: '', actions: [] })
+  const aiMsg = reactive({ role: 'assistant', content: '', reasoning: '', actions: [] })
   let aiPushed = false
 
   try {

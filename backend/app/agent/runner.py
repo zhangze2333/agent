@@ -13,6 +13,7 @@ agent/runner.py —— 智能体主循环（Agent Loop，流式版）
 
 事件协议（前端按 event 类型分别处理）：
     ("status", {"step": "thinking"})                        开始思考
+    ("reasoning", {"text": "思考碎片"})                      模型的深度思考过程（灰色折叠块展示）
     ("delta",  {"text": "部分文字"})                         最终回复的增量文字
     ("status", {"step": "tool", "name":..., "args":...})    即将调用工具
     ("status", {"step": "tool_result", ...})                工具执行完成
@@ -100,6 +101,12 @@ def run_agent_stream(user_message: str, history: list | None = None):
             if not chunk.choices:
                 continue
             delta = chunk.choices[0].delta  # delta = "这一小段新增的内容"
+            # 思考过程碎片（glm-4.6 是深度思考模型，回答前会先输出 reasoning_content）。
+            # 它不是给用户看的正文，而是模型的推理草稿——单独发 reasoning 事件，
+            # 前端做成灰色可折叠块展示（ZCode/Claude 那种效果）
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                yield "reasoning", {"text": reasoning}
             # 正文碎片：立即转发给前端（这就是"真流式"——生成一个字推一个字）
             if getattr(delta, "content", None):
                 content_parts.append(delta.content)

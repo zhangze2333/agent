@@ -1,18 +1,29 @@
 <!--
 ChatMessage.vue —— 单条聊天消息气泡（子组件）
 
-【知识点：v-if / v-else 条件渲染】
-用户的消息靠右、AI 的消息靠左，气泡样式也不同，
-用 v-if / v-else 按 msg.role 切换两套模板。
-
-【知识点：agent 执行动作的展示】
-后端返回的 actions 数组记录了 AI 实际调用了哪些工具、传了什么参数。
-把它显示出来，你就能"透视"智能体的大脑 —— 学习 Agent 原理时特别直观。
+v0.3 新增：深度思考块（ZCode/Claude 同款交互）
+  - 灰色小字展示模型的推理过程（reasoning）
+  - 思考进行中（正文还没出现）：默认展开，实时滚动
+  - 正文开始出现：自动收起成一行「💭 已深度思考」，点击可再展开
+  - 用 watch 监听 msg.content 的变化来触发自动收起
 -->
 <script setup>
-defineProps({
+import { ref, watch } from 'vue'
+
+const props = defineProps({
   msg: { type: Object, required: true },
 })
+
+// 展开状态的初始值：如果组件创建时还没有正文，说明正在思考，默认展开
+const expanded = ref(!props.msg.content)
+
+// 正文一旦开始流式出现，自动收起思考块
+watch(
+  () => props.msg.content,
+  (v) => {
+    if (v) expanded.value = false
+  }
+)
 
 // 把工具调用记录翻译成人话
 function describeAction(action) {
@@ -23,7 +34,6 @@ function describeAction(action) {
     delete_todo: '🗑️ 删除待办',
   }
   const label = names[action.tool] || action.tool
-  // JSON.stringify 的第三个参数无意义，这里只是去掉引号让显示更干净
   const argsText = Object.entries(action.args || {})
     .map(([k, v]) => `${k}=${v}`)
     .join(', ')
@@ -35,6 +45,15 @@ function describeAction(action) {
   <div class="msg-row" :class="msg.role">
     <div class="avatar">{{ msg.role === 'user' ? '🧑' : '🤖' }}</div>
     <div class="bubble">
+      <!-- 深度思考块：模型的推理草稿，灰色弱化展示 -->
+      <div v-if="msg.reasoning" class="reasoning">
+        <div class="reasoning-head" @click="expanded = !expanded">
+          <span class="arrow">{{ expanded ? '▾' : '▸' }}</span>
+          <span>{{ msg.content ? '💭 已深度思考（点击展开）' : '💭 深度思考中…' }}</span>
+        </div>
+        <div v-show="expanded" class="reasoning-body">{{ msg.reasoning }}</div>
+      </div>
+
       <!-- AI 的回复：如果执行过工具，先显示动作记录 -->
       <div v-if="msg.actions && msg.actions.length" class="actions">
         <el-tag
@@ -93,6 +112,43 @@ function describeAction(action) {
   background: #409eff;
   color: #fff;
   border-color: #409eff;
+}
+
+/* ───── 深度思考块 ───── */
+.reasoning {
+  margin-bottom: 8px;
+  border-left: 3px solid #dcdfe6;
+  background: #f5f7fa;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.reasoning-head {
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #909399;
+  cursor: pointer;
+  user-select: none; /* 标题文字不可选中，点起来更像按钮 */
+}
+
+.reasoning-head:hover {
+  color: #606266;
+}
+
+.arrow {
+  display: inline-block;
+  width: 14px;
+}
+
+.reasoning-body {
+  padding: 4px 12px 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #a8abb2;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px; /* 思考内容可能很长，限制高度内部滚动 */
+  overflow-y: auto;
 }
 
 .actions {
