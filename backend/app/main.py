@@ -16,6 +16,7 @@ FastAPI 是 Web 框架（定义"收到什么请求、返回什么响应"），
 uvicorn 是服务器软件（真正监听 8010 端口、收发网络包）。
 就像"菜谱"和"厨房"的关系。
 """
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,6 +24,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
 from app.routers import chat, todos
+
+# 【知识点：日志配置】
+# logging 是 Python 标准库。basicConfig 设置全局格式后，
+# 任何模块里 logging.getLogger("名字") 拿到的日志器都会按这个格式输出。
+# 我们用 systemd 跑服务，print/logging 输出会自动被系统日志服务(journald)收集，
+# 用 journalctl -u agent-api 就能看（见 README 部署章节）。
+logging.basicConfig(
+    level=logging.INFO,  # DEBUG < INFO < WARNING < ERROR，INFO 表示记录一般运行信息
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 
 @asynccontextmanager

@@ -25,9 +25,14 @@ MAX_STEPS 的作用：万一大模型陷入"不停调工具"的死循环，强�
 ═══════════════════════════════════════════════════════════════════
 """
 import json
+import logging
 from datetime import datetime
 
 from app.agent import llm, tools
+
+# 名为 "agent" 的日志器：所有 AI 的行为都通过它记录，
+# 服务器上用 journalctl -u agent-api 就能看到智能体的每一步
+logger = logging.getLogger("agent")
 
 MAX_STEPS = 6  # 一轮对话最多允许大模型调用工具的次数
 
@@ -61,6 +66,8 @@ def run_agent(user_message: str) -> dict:
         {"role": "user", "content": user_message},
     ]
     actions = []
+    logger.info("════ 新对话开始 ════")
+    logger.info("用户说: %s", user_message)  # %-s 占位符是日志规范：延迟拼接，不打无用的字符串
 
     for step in range(MAX_STEPS):
         # ① 请求大模型
@@ -69,6 +76,8 @@ def run_agent(user_message: str) -> dict:
 
         # ② 情况 a：没有要求调工具，说明它已经能给出最终回答了
         if not assistant_msg.tool_calls:
+            logger.info("AI最终回复: %s", assistant_msg.content)
+            logger.info("════ 对话结束（第 %d 步）════", step + 1)
             return {"reply": assistant_msg.content, "actions": actions}
 
         # ② 情况 b：大模型要求调工具。
@@ -95,6 +104,13 @@ def run_agent(user_message: str) -> dict:
             tool_args = json.loads(tc.function.arguments or "{}")  # 参数是 JSON 字符串，要解析
             result = tools.execute_tool(tool_name, tool_args)
             actions.append({"tool": tool_name, "args": tool_args, "result": result})
+            # 把工具调用完整记录下来——这是你审查"AI 做得对不对"的第一手证据
+            logger.info(
+                "第%d步 调用工具: %s 参数: %s 结果: %s",
+                step + 1, tool_name,
+                json.dumps(tool_args, ensure_ascii=False),
+                json.dumps(result, ensure_ascii=False),
+            )
             # role=tool 的消息必须带 tool_call_id，告诉大模型这是哪次调用的结果
             messages.append(
                 {
