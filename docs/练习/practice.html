@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>我的前端练习场</title>
+  <!-- ═══════════════════════════════════════════
+       这是你的练习文件，为期三天的前端基础训练都在这里完成：
+         Day 1 填 HTML（下面 body 里的 4 个 TODO）
+         Day 2 写 CSS（下面 style 里的样式）
+         Day 3 写 JS （下面 script 里的交互）
+       写完保存(Ctrl+S)，双击本文件用浏览器打开，F5 刷新看效果。
+       卡住了就把问题发给 ZCode，做完发给 ZCode review。
+       ═══════════════════════════════════════════ -->
+  <style>
+    body {
+      font-family: "Microsoft YaHei", sans-serif;
+      background: #f5f7fa;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #409eff;
+    }
+
+    /* ═══ Day 2 作业：在这里写样式，目标是让待办条目接近线上站的样子 ═══
+       提示：
+       1. .todo-item 要横着排：display: flex; align-items: center; 还要留间隙 gap
+       2. 加白底、圆角、边框：background / border-radius / border
+       3. 加点内边距让内容不贴边：padding
+       4. 不知道线上站长什么样？打开 http://106.13.187.174 按 F12 对照着抄
+    */
+  </style>
+</head>
+<body>
+  <h1>我的待办练习</h1>
+
+  <!-- ═══ Day 1 作业：手写一条"待办事项" ═══
+       目标：还原线上站的一条待办（复选框 + 文字 + 日期 + 删除按钮）
+       提示：
+         1. 复选框：<input type="checkbox">
+         2. 文字用 <span>内容</span> 包起来
+         3. 日期也是一段文字，比如 2026-10-25
+         4. 删除按钮：<button>删除</button>
+       写完保存刷新浏览器，能看到的四个东西就算 Day 1 完成（丑没关系！）
+  -->
+  <div class="todo-item">
+    <!-- TODO 1: 复选框 -->
+
+    <!-- TODO 2: 待办文字「学习 HTML 基础」 -->
+
+    <!-- TODO 3: 日期「2026-10-25」 -->
+
+    <!-- TODO 4: 删除按钮 -->
+  </div>
+
+  <script>
+    // ═══ Day 3 作业：让页面动起来 ═══
+    // 任务 1: 点复选框 → 文字加删除线
+    // 任务 2: 点删除按钮 → 整行消失（提示: .parentElement 和 .remove()）
+    // 任务 3: 页面加载时用数组 + forEach 自动生成 3 条假待办
+    //
+    // 起手示例（选中元素的标准写法）:
+    //   const box = document.querySelector('input[type="checkbox"]')
+    //   box.onclick = function () { console.log('被点了！') }
+  </script>
+</body>
+</html>
