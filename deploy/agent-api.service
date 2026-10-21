@@ -1,0 +1,14 @@
+[Unit]
+Description=AI Todo Agent - FastAPI backend (uvicorn)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/agent/backend
+ExecStart=/opt/agent/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8010
+Restart=always
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
