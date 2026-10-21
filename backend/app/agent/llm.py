@@ -1,0 +1,47 @@
+"""
+agent/llm.py —— 封装大模型（GLM）的调用
+
+【知识点：大模型 API 的通用套路】
+几乎所有大模型（智谱 GLM / OpenAI / DeepSeek...）的接口都是同一个模式：
+    传入 messages 列表 -> 返回 assistant 的回复
+
+messages 里每条消息有 role（角色）：
+    system    给 AI 的"幕后指令"：人设、规则。用户在界面上看不到
+    user      用户说的话
+    assistant AI 之前说过的话
+    tool      工具执行结果（后面 agent 部分会用到）
+
+【知识点：API key 为什么要放 .env？】
+key = 你的钱包。写死在代码里一旦推到 GitHub，全世界的爬虫几小时内
+就会扫到它、盗用你的额度。放 .env 文件并加入 .gitignore 是行业标准做法。
+"""
+import os
+
+from dotenv import load_dotenv
+from zhipuai import ZhipuAI
+
+# 读取同目录（backend/）下的 .env 文件，把里面的键值对加载进环境变量
+load_dotenv()
+
+MODEL = "glm-4-flash"  # 智谱的免费模型，学习项目零成本
+
+# 还没配 key 时不报错，让待办 CRUD 功能照常能用；聊天接口会给出友好提示
+_api_key = os.getenv("ZHIPU_API_KEY", "")
+client = ZhipuAI(api_key=_api_key) if _api_key else None
+
+
+def is_configured() -> bool:
+    """判断是否已配置 API key，chat 接口据此决定要不要返回 503 提示。"""
+    return client is not None
+
+
+def chat(messages: list, tools: list | None = None):
+    """
+    调用大模型。
+    messages: 完整对话历史（大模型是无状态的，每次都要把历史带上它才"记得"之前说过什么）
+    tools:    可选，告诉大模型它能调用哪些工具（见 tools.py）
+    """
+    kwargs = {"model": MODEL, "messages": messages}
+    if tools:
+        kwargs["tools"] = tools
+    return client.chat.completions.create(**kwargs)

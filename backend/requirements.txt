@@ -1,0 +1,7 @@
+# 后端依赖清单（类似前端的 package.json）
+# 安装命令：pip install -r requirements.txt
+
+fastapi>=0.115.0        # Web 框架：负责接收 HTTP 请求、定义接口
+uvicorn[standard]>=0.30.0   # Web 服务器：真正监听端口的程序，FastAPI 跑在它上面
+zhipuai>=2.1.5          # 智谱 AI 官方 SDK：用来调用 GLM 大模型
+python-dotenv>=1.0.0    # 从 .env 文件读取配置（比如 API key），避免把密钥写进代码

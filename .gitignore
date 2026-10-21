@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# 环境变量（存 API key，绝不提交！）
+.env
+
+# 数据库文件（每人自己的数据不一样，不需要同步）
+*.db
+
+# Node / 前端
+node_modules/
+dist/
+
+# 编辑器和系统文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
