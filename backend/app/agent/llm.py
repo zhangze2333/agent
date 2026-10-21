@@ -23,11 +23,20 @@ from zhipuai import ZhipuAI
 # 读取同目录（backend/）下的 .env 文件，把里面的键值对加载进环境变量
 load_dotenv()
 
-MODEL = "glm-4-flash"  # 智谱的免费模型，学习项目零成本
+# 模型和接口地址都做成配置项，因为智谱有两种 key，入口不同：
+# ① 普通个人 API key（免费）：不配 GLM_BASE_URL，模型用 glm-4-flash
+# ② Coding Plan 编程套餐 key：必须走专用入口，模型用 glm-4.6 / glm-4.5
+#    GLM_BASE_URL=https://open.bigmodel.cn/api/coding/paas/v4
+# 用错入口的报错很有迷惑性（比如报"套餐已失效"），遇到先检查入口对不对
+MODEL = os.getenv("GLM_MODEL", "glm-4-flash")
+_base_url = os.getenv("GLM_BASE_URL", "")
 
 # 还没配 key 时不报错，让待办 CRUD 功能照常能用；聊天接口会给出友好提示
 _api_key = os.getenv("ZHIPU_API_KEY", "")
-client = ZhipuAI(api_key=_api_key) if _api_key else None
+if _api_key:
+    client = ZhipuAI(api_key=_api_key, base_url=_base_url) if _base_url else ZhipuAI(api_key=_api_key)
+else:
+    client = None
 
 
 def is_configured() -> bool:

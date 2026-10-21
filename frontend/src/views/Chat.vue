@@ -12,7 +12,7 @@ Chat.vue —— AI 聊天页（本项目最好玩的部分）
 是这个项目的进阶练习方向，见 README。
 -->
 <script setup>
-import { nextTick, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import ChatMessage from '../components/ChatMessage.vue'
 import { sendChat } from '../api'
@@ -60,7 +60,11 @@ async function handleSend() {
     const res = await sendChat(text)
 
     // 3. 先创建一条"空"的 AI 消息，再让文字一个个出现
-    const aiMsg = { role: 'assistant', content: '', actions: res.data.actions || [] }
+    // 【重要】必须用 reactive() 包一层！
+    // 如果推入普通对象、再修改那个普通对象，Vue 3 感知不到变化（它只监听
+    // 经过 Proxy 代理的数据），界面就永远不更新——打字机效果会失效，
+    // 气泡一直空白。这是 Vue 3 最常见的响应式陷阱之一。
+    const aiMsg = reactive({ role: 'assistant', content: '', actions: res.data.actions || [] })
     messages.value.push(aiMsg)
     await typeOut(aiMsg, res.data.reply || '（AI 没有返回内容）')
   } catch (err) {
