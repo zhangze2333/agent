@@ -42,9 +42,13 @@ const TOOL_NAMES = {
 // 已完成的步骤永远保留在清单上——这是给用户的"施工记录"
 function onStatus(p) {
   if (p.step === 'thinking') {
-    finishAllSteps()
+    // 发送瞬间本地已预置"分析问题"步骤，这里去重：同样的步骤正在做就不重复加
+    const last = steps.value[steps.value.length - 1]
     const organized = steps.value.some((s) => s.tool) // 调过工具后的思考 = 在组织回复
-    steps.value.push({ text: organized ? '组织最终回复' : '分析问题', state: 'active' })
+    const want = organized ? '组织最终回复' : '分析问题'
+    if (last && last.state === 'active' && last.text === want) return
+    finishAllSteps()
+    steps.value.push({ text: want, state: 'active' })
   } else if (p.step === 'tool') {
     finishAllSteps()
     const name = TOOL_NAMES[p.name] || p.name
@@ -60,7 +64,7 @@ function onStatus(p) {
 // 解析一个 SSE 事件块。块的结构是两行文本：
 //   event: delta
 //   data: {"text": "部分文字"}
-function handleSseBlock(block, aiMsg) {
+function handleSseBlock(block, aiMsg, ensureBubble) {
   let event = 'message'
   const dataLines = []
   for (const line of block.split('\n')) {
@@ -74,17 +78,20 @@ function handleSseBlock(block, aiMsg) {
     onStatus(payload)
     scrollToBottom()
   } else if (event === 'reasoning') {
-    // 模型的深度思考过程：累积到气泡的 reasoning 字段，思考块里实时展示
-    aiMsg.reasoning += payload.text
+    ensureBubble() // 收到第一段思考/正文时才创建气泡，避免长时间的空白框
+    aiMsg.reasoning += payload.text // 模型的深度思考过程，思考块里实时展示
     scrollToBottom()
   } else if (event === 'delta') {
+    ensureBubble()
     finishAllSteps() // 开始出字了，前置步骤都算完成
     aiMsg.content += payload.text // 真流式的核心：边收边显示
     scrollToBottom()
   } else if (event === 'done') {
+    ensureBubble()
     aiMsg.content = payload.reply || aiMsg.content
     aiMsg.actions = payload.actions || []
   } else if (event === 'error') {
+    ensureBubble()
     aiMsg.content = `⚠️ ${payload.detail}`
   }
 }
@@ -103,13 +110,21 @@ async function handleSend() {
   messages.value.push({ role: 'user', content: text })
   input.value = ''
   sending.value = true
-  steps.value = [] // 新一轮对话，执行清单从零开始（上一轮的随回复完成已被清掉）
+  // 发送瞬间就本地预置第一步（不等网络事件），清单从第 0 秒就可见
+  steps.value = [{ text: '分析问题', state: 'active' }]
   scrollToBottom()
 
-  // AI 的气泡先以"空壳"出现，内容随后由流式数据填充
+  // AI 气泡此时【不】创建：空白的回答框很难看。
+  // 等收到第一段思考/正文时（ensureBubble）才出现，期间由执行清单代表它
   // （必须用 reactive() 包裹，否则修改 content 界面不更新——Vue3 响应式陷阱，v0.1 踩过）
   const aiMsg = reactive({ role: 'assistant', content: '', reasoning: '', actions: [] })
   let aiPushed = false
+  const ensureBubble = () => {
+    if (!aiPushed) {
+      messages.value.push(aiMsg)
+      aiPushed = true
+    }
+  }
 
   try {
     // 原生 fetch 发起流式请求；AbortSignal.timeout 限制总时长 120 秒
@@ -125,9 +140,6 @@ async function handleSend() {
       throw new Error(err.detail || `请求失败（HTTP ${resp.status}）`)
     }
 
-    messages.value.push(aiMsg)
-    aiPushed = true
-
     // 读流：resp.body 是字节流，用 reader 循环读取 + TextDecoder 转文字。
     // 网络传输不保证按事件块切割，所以要攒进 buf 里按空行(\n\n)切分
     const reader = resp.body.getReader()
@@ -141,16 +153,15 @@ async function handleSend() {
       while ((idx = buf.indexOf('\n\n')) >= 0) {
         const block = buf.slice(0, idx)
         buf = buf.slice(idx + 2)
-        if (block.trim()) handleSseBlock(block, aiMsg)
+        if (block.trim()) handleSseBlock(block, aiMsg, ensureBubble)
       }
     }
   } catch (err) {
-    if (!aiPushed) messages.value.push(aiMsg)
+    ensureBubble()
     aiMsg.content = `⚠️ ${err.name === 'TimeoutError' ? '请求超时了，请重试' : err.message || '网络错误，请检查后端是否启动'}`
   } finally {
     sending.value = false
-    // 注意：这里故意【不】清空 steps——执行清单保留在页面上，
-    // 作为这次回答的"施工记录"，直到下次发送时才重新开始
+    steps.value = [] // 全部执行完成，清单完成使命（完整回复+绿标签已经接班）
     scrollToBottom()
   }
 }
