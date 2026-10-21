@@ -17,7 +17,7 @@ import ChatMessage from '../components/ChatMessage.vue'
 const messages = ref([])      // 对话记录：[{role, content, actions}]
 const input = ref('')
 const sending = ref(false)    // true 时禁用输入，防连发
-const statusText = ref('')    // 智能体当前状态的播报文字
+const steps = ref([])         // 智能体执行步骤清单：[{text, done}]，逐条堆叠显示
 const listRef = ref(null)     // 消息列表的 DOM，用来自动滚动
 
 async function scrollToBottom() {
@@ -25,10 +25,19 @@ async function scrollToBottom() {
   listRef.value?.scrollTo({ top: listRef.value.scrollHeight, behavior: 'smooth' })
 }
 
-// 把后端的 status 事件翻译成人话
-function describeStatus(p) {
-  if (p.step === 'thinking') return '🤔 正在思考…'
-  if (p.step === 'tool') {
+// 把后端的 status 事件落到"步骤清单"里。
+// 设计要点：已完成的步骤保留在列表上（打勾），而不是被下一条状态覆盖——
+// 否则"调用工具"和"执行完成"间隔只有几毫秒，人眼根本看不到
+function onStatus(p) {
+  if (p.step === 'thinking') {
+    const last = steps.value[steps.value.length - 1]
+    const hasTool = steps.value.some((s) => s.tool)
+    // 调用工具后的"思考"其实是在组织回复，文案区分一下
+    if (!last || last.done) {
+      steps.value.push({ text: hasTool ? '🤔 正在组织回复…' : '🤔 正在思考…', done: false })
+    }
+  } else if (p.step === 'tool') {
+    steps.value.forEach((s) => (s.done = true)) // 之前的步骤都完成了
     const names = {
       add_todo: '➕ 创建待办',
       list_todos: '🔍 查询待办',
@@ -38,10 +47,10 @@ function describeStatus(p) {
     const argsText = Object.entries(p.args || {})
       .map(([k, v]) => `${k}=${v}`)
       .join(', ')
-    return `${names[p.name] || p.name}（${argsText}）…`
+    steps.value.push({ text: `${names[p.name] || p.name}（${argsText}）`, done: false, tool: true })
+  } else if (p.step === 'tool_result') {
+    steps.value.forEach((s) => (s.done = true))
   }
-  if (p.step === 'tool_result') return '✅ 工具执行完成，正在组织回复…'
-  return '…'
 }
 
 // 解析一个 SSE 事件块。块的结构是两行文本：
@@ -58,9 +67,10 @@ function handleSseBlock(block, aiMsg) {
   const payload = JSON.parse(dataLines.join('\n'))
 
   if (event === 'status') {
-    statusText.value = describeStatus(payload)
+    onStatus(payload)
     scrollToBottom()
   } else if (event === 'delta') {
+    steps.value.forEach((s) => (s.done = true)) // 开始出字了，前置步骤都算完成
     aiMsg.content += payload.text // 真流式的核心：边收边显示
     scrollToBottom()
   } else if (event === 'done') {
@@ -85,7 +95,7 @@ async function handleSend() {
   messages.value.push({ role: 'user', content: text })
   input.value = ''
   sending.value = true
-  statusText.value = '🤔 正在思考…'
+  steps.value = [] // 新一轮对话，步骤清单从零开始
   scrollToBottom()
 
   // AI 的气泡先以"空壳"出现，内容随后由流式数据填充
@@ -131,7 +141,7 @@ async function handleSend() {
     aiMsg.content = `⚠️ ${err.name === 'TimeoutError' ? '请求超时了，请重试' : err.message || '网络错误，请检查后端是否启动'}`
   } finally {
     sending.value = false
-    statusText.value = ''
+    steps.value = [] // 完整回复和动作标签已入列，步骤清单完成使命
     scrollToBottom()
   }
 }
@@ -159,8 +169,12 @@ function quickAsk(text) {
 
       <ChatMessage v-for="(msg, i) in messages" :key="i" :msg="msg" />
 
-      <!-- 智能体状态播报行：实时显示它正在干嘛 -->
-      <div v-if="sending" class="thinking">{{ statusText }}</div>
+      <!-- 智能体执行过程：逐步堆叠的清单，完成的打勾 -->
+      <div v-if="sending && steps.length" class="steps">
+        <div v-for="(s, i) in steps" :key="i" class="step" :class="{ done: s.done }">
+          <span class="step-mark">{{ s.done ? '✓' : '⏳' }}</span>{{ s.text }}
+        </div>
+      </div>
     </div>
 
     <!-- 输入区 -->
@@ -211,11 +225,26 @@ function quickAsk(text) {
   gap: 10px;
 }
 
-/* 状态播报行 */
-.thinking {
-  color: #909399;
+/* 步骤清单：每行一个步骤，完成的变灰打勾 */
+.steps {
+  padding: 4px 0 8px 46px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.step {
+  color: #606266;
   font-size: 13px;
-  padding: 8px 0 8px 46px;
+}
+
+.step.done {
+  color: #c0c4cc;
+}
+
+.step-mark {
+  display: inline-block;
+  width: 22px;
 }
 
 .input-bar {
