@@ -1,0 +1,10 @@
+# backend 构建时排除的东西（减小上下文、防止密钥进镜像层）
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.env
+logs/
+*.db
+*.db.old.bak
+docs/

@@ -1,0 +1,40 @@
+# docker-compose.yml —— 一条命令拉起整个项目
+#
+# version: "2.4" 是 compose 文件格式的版本声明（兼容老版 docker-compose v1
+# 和新版 v2），不是 Docker 的版本。新版 docker compose 会提示它已过时，可忽略。
+#
+# 用法（在项目根目录）：
+#   docker compose up -d --build     构建并后台启动（老版命令是 docker-compose）
+#   docker compose ps                看状态
+#   docker compose logs -f api       看后端日志
+#   docker compose down              停止并删除容器（数据卷保留）
+#
+# 【env_file vs environment】
+# - env_file 把 backend/.env 的所有变量注入容器（API key、JWT_SECRET）
+# - environment 里声明的 DATABASE_URL 优先级更高，覆盖 env_file 里的同名值
+#   —— 数据库路径固定指向 /app/data（挂载卷），数据不随容器销毁而丢失
+version: "2.4"
+
+services:
+  api:
+    build: ./backend
+    env_file: backend/.env
+    environment:
+      # 四个斜杠 = 绝对路径 SQLite（sqlalchemy:/// + /app/data/todos.db）
+      DATABASE_URL: sqlite:////app/data/todos.db
+    volumes:
+      - api-data:/app/data # 命名卷：容器删除重建，数据仍在
+    restart: unless-stopped
+    # 注意不映射端口到宿主机：api 只在 compose 内部网络里被 web 访问，
+    # 公网和宿主机都摸不到它（比之前 systemd 版更安全）
+
+  web:
+    build: ./frontend
+    ports:
+      - "80:80" # 唯一对外的门
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api-data:

@@ -1,0 +1,4 @@
+# frontend 构建时排除的东西
+node_modules/
+dist/
+.env
