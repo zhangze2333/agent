@@ -1,95 +1,99 @@
 """
-routers/todos.py —— 待办事项的增删改查接口（REST API）
+routers/todos.py —— 待办增删改查（SQLAlchemy ORM 版 + 数据隔离）
 
-【知识点：RESTful 是一种接口设计风格】
-用「URL 定位资源」+「HTTP 方法表达操作」：
-    GET    /api/todos       查列表
-    POST   /api/todos       新建一条
-    PUT    /api/todos/3     修改第 3 条
-    DELETE /api/todos/3     删除第 3 条
-前端 axios 调用时一一对应，整个团队看到 URL 就知道接口是干嘛的。
+【v1.0 企业级改造的两大变化】
+1. ORM：裸 SQL 全部换成 SQLAlchemy 查询
+2. 数据隔离：每个路由都注入 `user: User = Depends(get_current_user)`，
+   所有查询强制过滤 user.id —— 用户 A 永远看不到用户 B 的待办。
 
-【知识点：APIRouter】
-把接口按功能拆到不同文件（路由分组），而不是全堆在 main.py 里，
-项目大了才不会乱。main.py 里用 app.include_router() 把它们组装起来。
+【越权漏洞课】
+假设查询不筛 user_id（只靠前端不显示别人的数据），攻击者拿着自己的
+登录 token 直接 curl /api/todos/88 就能翻出别人的待办——这叫"水平越权"，
+是后端事故排行榜的常客。防它的唯一正确姿势：**服务端每个查询都带身份过滤**，
+永远不要相信"前端没展示"。
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app import database
-from app.models import TodoCreate, TodoUpdate
+from app import db_models
+from app.database import get_db
+from app.models import TodoCreate, TodoOut, TodoUpdate
+from app.security import get_current_user
 
-# prefix 表示这个文件里所有接口的 URL 前缀都是 /api/todos
 router = APIRouter(prefix="/api/todos", tags=["待办管理"])
 
 
-@router.get("")
-def list_todos(completed: bool | None = None):
-    """
-    查询待办列表。
-    completed 是"查询参数"（URL 问号后面的部分）：
-      /api/todos              -> 返回全部
-      /api/todos?completed=false -> 只返回未完成的
-    """
-    with database.db() as conn:
-        if completed is None:
-            # ORDER BY completed：未完成(0)排在已完成(1)前面；再按 id 倒序，新的在前
-            rows = conn.execute("SELECT * FROM todos ORDER BY completed, id DESC").fetchall()
-        else:
-            # ? 占位符传参可以防止 SQL 注入攻击，永远不要用 f-string 拼 SQL！
-            rows = conn.execute(
-                "SELECT * FROM todos WHERE completed = ? ORDER BY id DESC", (completed,)
-            ).fetchall()
-    return [database.row_to_todo(r) for r in rows]
+@router.get("", response_model=list[TodoOut])
+def list_todos(
+    completed: bool | None = None,
+    user: db_models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """查当前用户的待办列表。completed 查询参数可选筛选。"""
+    stmt = select(db_models.Todo).where(db_models.Todo.user_id == user.id)
+    if completed is not None:
+        stmt = stmt.where(db_models.Todo.completed == completed)
+    # 未完成的在前，新的在前
+    stmt = stmt.order_by(db_models.Todo.completed, db_models.Todo.id.desc())
+    return db.scalars(stmt).all()  # ORM 对象列表 -> FastAPI 按 TodoOut 序列化
 
 
-@router.post("")
-def create_todo(body: TodoCreate):
-    """新建待办。body: TodoCreate 让 FastAPI 自动解析并校验请求体 JSON。"""
-    with database.db() as conn:
-        cursor = conn.execute(
-            "INSERT INTO todos (title, due_date, priority) VALUES (?, ?, ?)",
-            (body.title, body.due_date, body.priority),
-        )
-        new_id = cursor.lastrowid  # 数据库自动分配的自增 id
-    return get_todo_by_id(new_id)
+@router.post("", response_model=TodoOut, status_code=201)
+def create_todo(
+    body: TodoCreate,
+    user: db_models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """新建待办。注意 user_id 来自登录态，不是请求参数——前端传什么都不算数。"""
+    todo = db_models.Todo(user_id=user.id, title=body.title, due_date=body.due_date, priority=body.priority)
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
+    return todo
 
 
-@router.get("/{todo_id}")
-def get_todo_by_id(todo_id: int):
-    """按 id 查单条。路径里的 {todo_id} 会自动传进函数，并自动转成 int。"""
-    with database.db() as conn:
-        row = conn.execute("SELECT * FROM todos WHERE id = ?", (todo_id,)).fetchone()
-    if row is None:
-        # HTTPException 会返回指定状态码给前端，404 = 资源不存在
+@router.get("/{todo_id}", response_model=TodoOut)
+def get_todo(
+    todo_id: int,
+    user: db_models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    todo = db.get(db_models.Todo, todo_id)
+    # 两个 404 合一个：不存在，或不是你的（不泄露"这条数据属于别人"的信息）
+    if todo is None or todo.user_id != user.id:
         raise HTTPException(status_code=404, detail=f"待办 {todo_id} 不存在")
-    return database.row_to_todo(row)
+    return todo
 
 
-@router.put("/{todo_id}")
-def update_todo(todo_id: int, body: TodoUpdate):
-    """
-    修改待办（支持只改部分字段）。
-    小技巧：把"传了值的字段"动态拼进 UPDATE 语句（值仍然用 ? 占位，安全）。
-    """
-    # 只收集用户传了的字段，组成 {列名: 新值} 字典
-    fields = body.model_dump(exclude_unset=True)  # Pydantic 方法：只保留请求里出现的字段
-    if not fields:
-        raise HTTPException(status_code=400, detail="没有提供任何要修改的字段")
+@router.put("/{todo_id}", response_model=TodoOut)
+def update_todo(
+    todo_id: int,
+    body: TodoUpdate,
+    user: db_models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    todo = db.get(db_models.Todo, todo_id)
+    if todo is None or todo.user_id != user.id:
+        raise HTTPException(status_code=404, detail=f"待办 {todo_id} 不存在")
 
-    set_clause = ", ".join(f"{col} = ?" for col in fields)  # 例如 "title = ?, completed = ?"
-    params = list(fields.values()) + [todo_id]
-
-    with database.db() as conn:
-        cursor = conn.execute(f"UPDATE todos SET {set_clause} WHERE id = ?", params)
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail=f"待办 {todo_id} 不存在")
-    return get_todo_by_id(todo_id)
+    # 只更新请求里出现的字段（部分更新的标准 ORM 写法）
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(todo, field, value)
+    db.commit()
+    db.refresh(todo)
+    return todo
 
 
 @router.delete("/{todo_id}")
-def delete_todo(todo_id: int):
-    with database.db() as conn:
-        cursor = conn.execute("DELETE FROM todos WHERE id = ?", (todo_id,))
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail=f"待办 {todo_id} 不存在")
+def delete_todo(
+    todo_id: int,
+    user: db_models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    todo = db.get(db_models.Todo, todo_id)
+    if todo is None or todo.user_id != user.id:
+        raise HTTPException(status_code=404, detail=f"待办 {todo_id} 不存在")
+    db.delete(todo)
+    db.commit()
     return {"message": f"已删除待办 {todo_id}"}

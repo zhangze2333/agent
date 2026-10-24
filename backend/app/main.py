@@ -24,8 +24,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import security
 from app.database import init_db
-from app.routers import chat, todos
+from app.routers import auth, chat, todos
 
 # 【知识点：日志配置】
 # 我们采用"双写"方案，同一条日志两处可查：
@@ -57,7 +58,15 @@ logging.getLogger("agent").addHandler(_file_handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """生命周期钩子：yield 之前的代码在服务启动时执行一次（建表），之后在关闭时执行。"""
+    """生命周期钩子：yield 之前的代码在服务启动时执行一次，之后在关闭时执行。"""
+    if not security.JWT_SECRET:
+        # 学习环境给个临时密钥保证能跑；生产必须配置——密钥泄露 = 任何人可伪造登录
+        import os
+        import secrets
+
+        os.environ["JWT_SECRET"] = secrets.token_hex(32)
+        security.JWT_SECRET = os.environ["JWT_SECRET"]
+        logging.getLogger("agent").warning("JWT_SECRET 未配置！已生成临时密钥（重启后所有登录失效）")
     init_db()
     yield
 
@@ -80,7 +89,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 把两个路由文件里的接口"挂载"到主应用上
+# 把三个路由文件里的接口"挂载"到主应用上
+app.include_router(auth.router)
 app.include_router(todos.router)
 app.include_router(chat.router)
 

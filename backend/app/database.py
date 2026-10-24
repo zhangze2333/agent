@@ -1,68 +1,67 @@
 """
-database.py —— 数据库模块
+database.py —— 数据库连接层（SQLAlchemy ORM 版）
 
-【知识点：SQLite 是什么？】
-SQLite 是一个"文件数据库"：整个数据库就是硬盘上的一个 .db 文件，
-不需要像 MySQL 那样安装数据库软件、开服务、设密码，Python 标准库自带支持。
-学习和小项目用它最合适；以后数据量大了再换 MySQL/PostgreSQL，思路完全一样。
+═══════════════════════════════════════════════════════════════════
+【v1.0 企业级改造：从裸 SQL 到 ORM】
 
-【知识点：为什么不用全局变量存数据？】
-后端进程一重启，内存里的数据就没了（这叫"易失"）。
-写入数据库 = 写入硬盘，重启后数据还在，这叫"持久化"。
+以前（裸 SQL）：
+    conn.execute("SELECT * FROM todos WHERE user_id = ?", (uid,))
+现在（ORM）：
+    db.query(Todo).filter(Todo.user_id == uid).all()
+
+ORM 的核心思想：一张表 = 一个 Python 类，一行数据 = 一个对象。
+好处（为什么企业项目标配）：
+1. 换数据库几乎零成本：本行只改 DATABASE_URL，SQL 方言由 SQLAlchemy 生成
+2. 防注入：查询条件是 Python 表达式，不是手拼字符串
+3. 表结构有类型提示，IDE 补全 + 重构工具都能用
+═══════════════════════════════════════════════════════════════════
 """
-import sqlite3
-from contextlib import contextmanager
+import os
 from pathlib import Path
 
-# __file__ 是当前文件的路径，这样写保证无论从哪个目录启动程序，都能找到正确的数据库文件
-DB_PATH = Path(__file__).parent / "todos.db"
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
+load_dotenv()
+
+# 数据库地址走配置：默认还是项目里的 SQLite 文件。
+# 未来换 PostgreSQL 只需改成：
+#   DATABASE_URL=postgresql+psycopg://user:pass@host:5432/dbname
+# 并 pip install psycopg —— 业务代码一行不用动，这就是 ORM 的价值
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", f"sqlite:///{(Path(__file__).parent / 'todos.db').as_posix()}"
+)
+
+# SQLite 需要这个参数：允许多线程访问（FastAPI 的线程池会并发处理请求）
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
+# 会话工厂：Session 是"一次数据库交互"的上下文，负责追踪改动、提交事务
+SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-@contextmanager
-def db():
+class Base(DeclarativeBase):
+    """所有 ORM 模型的基类。SQLAlchemy 靠它收集"有哪些表"。"""
+
+
+def get_db():
     """
-    一个"上下文管理器"，用法：
+    FastAPI 依赖注入：每个请求进来创建一个会话，请求结束自动关闭。
 
-        with db() as conn:
-            conn.execute("SELECT ...")
-
-    with 代码块结束时自动提交事务（commit）并关闭连接（close），
-    避免我们忘记 close 导致资源泄漏。@contextmanager 是 Python 的语法糖，
-    相当于帮你把 try/finally 写法包装得更优雅。
+    路由函数里写 `db: Session = Depends(get_db)` 即可拿到会话，
+    不用自己管开关 —— 和 v0.1 的 with database.db() 是同一个思路的依赖化写法。
     """
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # 让每行结果既能用下标 row[0]，也能用列名 row["title"] 访问
+    db = SessionLocal()
     try:
-        yield conn
-        conn.commit()  # 增删改操作真正落盘
+        yield db
     finally:
-        conn.close()
+        db.close()
 
 
 def init_db():
-    """项目启动时调用：建表。IF NOT EXISTS 保证重复启动也不会报错。"""
-    with db() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS todos (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,  -- 自增主键，每条待办的唯一编号
-                title      TEXT    NOT NULL,                   -- 待办内容
-                completed  INTEGER NOT NULL DEFAULT 0,         -- SQLite 没有布尔类型，0=未完成 1=已完成
-                due_date   TEXT,                               -- 截止日期，格式 2026-10-22，可以为空
-                priority   TEXT    NOT NULL DEFAULT 'medium',  -- 优先级 high / medium / low
-                created_at TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
-            )
-            """
-        )
+    """启动时建表：根据所有继承 Base 的模型类创建不存在的表（已存在的不动）。"""
+    # import 必须放在函数内：让 SQLAlchemy 此刻能看到所有模型类
+    from app import db_models  # noqa: F401
 
-
-def row_to_todo(row) -> dict:
-    """把数据库的一行(row)转成字典(dict)，返回给前端的就是 JSON，字典会自动变 JSON。"""
-    return {
-        "id": row["id"],
-        "title": row["title"],
-        "completed": bool(row["completed"]),  # 转回真正的 true/false 给前端
-        "due_date": row["due_date"],
-        "priority": row["priority"],
-        "created_at": row["created_at"],
-    }
+    Base.metadata.create_all(engine)

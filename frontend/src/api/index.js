@@ -1,21 +1,52 @@
 /**
  * api/index.js —— 后端接口调用层（基于 axios）
  *
- * 【知识点：为什么要单独抽一层 api 文件？】
- * 组件里不直接写 axios.get('http://127.0.0.1:8000/api/todos') 这种代码，
- * 而是统一在这里封装。好处：
- * 1. 后端地址改动时只改这一个文件
- * 2. 组件只管"调 fetchTodos()"，不用关心请求细节（关注点分离）
- *
- * 注意 baseURL 是 '/api'，配合 vite.config.js 的 proxy 转发到后端 8000 端口
+ * 【v1.0 企业级新增：拦截器】
+ * 拦截器 = axios 的"中间件"，每个请求/响应都先过一遍：
+ * - 请求拦截器：自动带上 Authorization 头（组件再也不用自己管 token）
+ * - 响应拦截器：收到 401（未登录/过期）统一踢回登录页
+ *   —— "登录过期跳登录页"这个逻辑写一次，全应用生效
  */
 import axios from 'axios'
+import { auth, clearAuth } from '../stores/auth'
 
-// 创建一个配置好的 axios 实例
 const api = axios.create({
   baseURL: '/api',
   timeout: 60000, // AI 回复可能要几秒到几十秒，超时设长一点
 })
+
+// 请求拦截器：每个请求自动附带登录令牌
+api.interceptors.request.use((config) => {
+  if (auth.token) {
+    config.headers.Authorization = `Bearer ${auth.token}`
+  }
+  return config
+})
+
+// 响应拦截器：401 = 未登录或登录过期，清空登录态回登录页
+api.interceptors.response.use(
+  (resp) => resp,
+  (err) => {
+    if (err.response?.status === 401) {
+      clearAuth()
+      window.location.href = '/login'
+    }
+    return Promise.reject(err)
+  }
+)
+
+// ───── 用户认证接口 ─────
+export function authRegister(data) {
+  return api.post('/auth/register', data) // data: {username, password}
+}
+
+export function authLogin(data) {
+  return api.post('/auth/login', data)
+}
+
+export function authMe() {
+  return api.get('/auth/me')
+}
 
 // ───── 待办相关接口 ─────
 export function fetchTodos(params) {

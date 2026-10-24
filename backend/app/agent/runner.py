@@ -71,9 +71,11 @@ def _build_messages(user_message: str, history: list | None) -> list:
     return messages
 
 
-def run_agent_stream(user_message: str, history: list | None = None):
+def run_agent_stream(user_message: str, history: list | None = None, user_id: int | None = None):
     """
     流式版智能体主循环：它是一个"生成器"（generator）。
+
+    user_id：当前登录用户的 id，执行工具时注入（见 tools.py 的安全说明）。
 
     【知识点：yield 和生成器】
     普通函数 return 一次就结束；生成器函数用 yield 可以"吐"出很多次值，
@@ -85,7 +87,7 @@ def run_agent_stream(user_message: str, history: list | None = None):
     """
     messages = _build_messages(user_message, history)
     actions = []
-    logger.info("════ 新对话开始 ════")
+    logger.info("════ 新对话开始（用户 %s）════", user_id)
     logger.info("用户说: %s", user_message)
 
     for step in range(MAX_STEPS):
@@ -145,11 +147,11 @@ def run_agent_stream(user_message: str, history: list | None = None):
             }
         )
 
-        # ③④ 逐个执行工具，把结果追加进历史
+        # ③④ 逐个执行工具，把结果追加进历史。user_id 由后端注入，不信任模型参数
         for i, slot in sorted(pending_calls.items()):
             tool_name = slot["name"]
             tool_args = json.loads(slot["arguments"] or "{}")
-            result = tools.execute_tool(tool_name, tool_args)
+            result = tools.execute_tool(tool_name, tool_args, user_id)
             actions.append({"tool": tool_name, "args": tool_args, "result": result})
             logger.info(
                 "第%d步 调用工具: %s 参数: %s 结果: %s",
@@ -175,10 +177,10 @@ def run_agent_stream(user_message: str, history: list | None = None):
     }
 
 
-def run_agent(user_message: str, history: list | None = None) -> dict:
+def run_agent(user_message: str, history: list | None = None, user_id: int | None = None) -> dict:
     """非流式版：把流式循环完整跑完再返回（方便 curl 测试和简单调用）。"""
     done = {"reply": None, "actions": []}
-    for _event, payload in run_agent_stream(user_message, history):
+    for _event, payload in run_agent_stream(user_message, history, user_id):
         if _event == "done":
             done = payload
     return done

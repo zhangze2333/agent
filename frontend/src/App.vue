@@ -11,7 +11,12 @@ App.vue —— 根组件：整个应用的"外壳"
   <router-link> 会渲染成 <a>，但点击时不刷新页面，由路由切换组件。
 -->
 <script setup>
-// Vue 3 组合式 API 语法糖：在这个块里定义的变量/函数，模板直接可用
+import { auth, clearAuth } from './stores/auth'
+
+function handleLogout() {
+  clearAuth()
+  window.location.href = '/login' // 整页跳转，顺带清空所有页面状态
+}
 </script>
 
 <template>
@@ -21,6 +26,10 @@ App.vue —— 根组件：整个应用的"外壳"
       <nav class="nav">
         <router-link to="/" class="nav-link">📋 待办列表</router-link>
         <router-link to="/chat" class="nav-link">💬 AI 助手</router-link>
+        <template v-if="auth.token">
+          <span class="user-chip">👤 {{ auth.username }}</span>
+          <el-button text size="small" @click="handleLogout">退出</el-button>
+        </template>
       </nav>
     </el-header>
 
@@ -73,6 +82,12 @@ App.vue —— 根组件：整个应用的"外壳"
   background: #ecf5ff;
   color: #409eff;
   font-weight: 600;
+}
+
+.user-chip {
+  color: #606266;
+  font-size: 13px;
+  padding: 0 4px;
 }
 
 .main {

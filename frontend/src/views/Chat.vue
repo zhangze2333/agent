@@ -13,6 +13,7 @@ Chat.vue —— AI 聊天页（v0.2：真流式 + 过程可视化 + 多轮对话
 <script setup>
 import { nextTick, reactive, ref } from 'vue'
 import ChatMessage from '../components/ChatMessage.vue'
+import { auth } from '../stores/auth'
 
 const messages = ref([])      // 对话记录：[{role, content, actions}]
 const input = ref('')
@@ -128,12 +129,20 @@ async function handleSend() {
 
   try {
     // 原生 fetch 发起流式请求；AbortSignal.timeout 限制总时长 120 秒
+    // 注意：fetch 不会走 axios 拦截器，登录头要自己带；401 时后端返回普通 JSON
     const resp = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.token}`,
+      },
       body: JSON.stringify({ message: text, history }),
       signal: AbortSignal.timeout(120000),
     })
+    if (resp.status === 401) {
+      window.location.href = '/login' // 登录过期，踢回登录页
+      return
+    }
     if (!resp.ok) {
       // 非 200 时后端返回的是普通 JSON 错误体
       const err = await resp.json().catch(() => ({}))

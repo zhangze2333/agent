@@ -5,3 +5,8 @@ fastapi>=0.115.0        # Web 框架：负责接收 HTTP 请求、定义接口
 uvicorn[standard]>=0.30.0   # Web 服务器：真正监听端口的程序，FastAPI 跑在它上面
 zhipuai>=2.1.5          # 智谱 AI 官方 SDK：用来调用 GLM 大模型
 python-dotenv>=1.0.0    # 从 .env 文件读取配置（比如 API key），避免把密钥写进代码
+
+# ── 企业级改造新增 ──
+sqlalchemy>=2.0         # ORM：把数据库表映射成 Python 类，操作数据库 = 操作对象
+pyjwt>=2.8.0            # JWT：签发和校验登录令牌
+bcrypt>=4.0             # 密码哈希：数据库里永远不存明文密码

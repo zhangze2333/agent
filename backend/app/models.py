@@ -1,30 +1,28 @@
 """
-models.py —— 数据模型（基于 Pydantic）
+models.py —— Pydantic 数据模型（HTTP 接口的出入参）
 
-【知识点：Pydantic 是干嘛的？】
-它用"类"来描述数据应该长什么样。FastAPI 拿到前端发来的 JSON 后会自动：
-1. 校验：title 是不是字符串？空不空？超不超过 200 字？不合格直接返回 422 错误
-2. 转换：JSON -> Python 对象，你直接用 obj.title 访问
-3. 生成文档：访问 /docs 能看到根据这些模型自动生成的接口文档
-
-没有它的话，这些检查你得自己写一堆 if，很容易漏。
+【v1.0 更新】
+- 新增 TodoOut：接口的统一返回格式（response_model）。企业规范是"出参也要建模"，
+  而不是随手返回 dict——返回结构有了合同，前端和文档（/docs）都受益
+- 新增认证相关模型：注册/登录请求、token 响应
 """
+from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
+# ───── 待办 ─────
 class TodoCreate(BaseModel):
-    """创建待办时的请求体格式"""
+    """创建待办时的请求体"""
 
     title: str = Field(..., min_length=1, max_length=200, description="待办内容")
-    # "..." 表示必填；Optional[str] = None 表示可不填，默认为空
     due_date: Optional[str] = Field(None, description="截止日期，格式 2026-10-22")
     priority: str = Field("medium", description="优先级: high / medium / low")
 
 
 class TodoUpdate(BaseModel):
-    """修改待办时的请求体格式：所有字段都可选，只改传了的那几项（部分更新）"""
+    """修改待办时的请求体：所有字段都可选，只改传了的那几项（部分更新）"""
 
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     completed: Optional[bool] = None
@@ -32,6 +30,46 @@ class TodoUpdate(BaseModel):
     priority: Optional[str] = None
 
 
+class TodoOut(BaseModel):
+    """
+    待办的出参模型。
+    model_config = from_attributes 允许"从 ORM 对象直接转"：
+    路由 return ORM 对象时，FastAPI 按这个模型的字段挑着序列化——
+    password_hash 之类的敏感字段想漏都漏不出去。
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    completed: bool
+    due_date: Optional[str]
+    priority: str
+    created_at: datetime
+
+
+# ───── 用户认证 ─────
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=30, description="用户名，3-30 字符")
+    password: str = Field(..., min_length=6, max_length=50, description="密码，至少 6 位")
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    token: str
+    username: str
+
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+
+
+# ───── AI 聊天 ─────
 class ChatMessage(BaseModel):
     """历史对话里的一条消息（只有 user / assistant 两种）"""
 

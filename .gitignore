@@ -22,3 +22,6 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# 旧数据库备份
+*.bak
