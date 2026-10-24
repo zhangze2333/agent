@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 数据库文件目录：挂载卷用，提前建好并赋权给运行用户
-RUN useradd -m appuser && mkdir -p /app/data && chown -R appuser /app/data
+# 数据库(/app/data，挂载卷) 和日志(/app/logs) 目录：提前建好并赋权给运行用户
+RUN useradd -m appuser && mkdir -p /app/data /app/logs && chown -R appuser /app/data /app/logs
 COPY --chown=appuser app ./app
 
 USER appuser
