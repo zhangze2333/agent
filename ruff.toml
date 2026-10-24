@@ -1,0 +1,17 @@
+# Ruff 配置：Python 代码检查 + 格式化（一个工具覆盖 black+isort+flake8 的活）
+# 用法：
+#   ruff check app --fix   检查并自动修复
+#   ruff format app        格式化
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+    "E",  # pycodestyle 错误
+    "W",  # pycodestyle 警告
+    "F",  # pyflakes：未使用的导入/变量、未定义名字等
+    "I",  # isort：import 排序
+    "UP", # pyupgrade：过时写法升级建议
+]
+# B008（函数调用作默认参数）是 FastAPI Depends() 的标准写法，放行
+ignore = ["B008"]

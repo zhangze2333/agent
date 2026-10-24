@@ -18,9 +18,9 @@ import TodoItem from '../components/TodoItem.vue'
 import { createTodo, deleteTodo, fetchTodos, updateTodo } from '../api'
 
 // ───── 响应式状态 ─────
-const todos = ref([])        // 待办列表，从后端获取
-const loading = ref(false)   // 是否正在加载（控制转圈动画）
-const filter = ref('all')    // 筛选：all / active / done
+const todos = ref([]) // 待办列表，从后端获取
+const loading = ref(false) // 是否正在加载（控制转圈动画）
+const filter = ref('all') // 筛选：all / active / done
 
 // 新增表单的三项数据，用 v-model 和输入框双向绑定
 const newTitle = ref('')
@@ -43,8 +43,9 @@ async function loadTodos() {
     // axios 返回的数据在 .data 里（后端返回什么，这里就是什么）
     const res = await fetchTodos()
     todos.value = res.data
-  } catch (err) {
-    ElMessage.error('加载待办失败，后端启动了吗？')
+  } catch {
+    // 不需要 err 变量：这里只提示，不区分错误类型（ES2019 可选 catch 绑定）
+    ElMessage.error('加载待办失败，请重新登录试试')
   } finally {
     loading.value = false // 无论成败都关掉 loading
   }
@@ -84,7 +85,10 @@ onMounted(loadTodos)
 <template>
   <div class="todo-page">
     <!-- 新增区域 -->
-    <el-card class="add-card" shadow="never">
+    <el-card
+      class="add-card"
+      shadow="never"
+    >
       <div class="add-row">
         <el-input
           v-model="newTitle"
@@ -100,27 +104,54 @@ onMounted(loadTodos)
           value-format="YYYY-MM-DD"
           style="width: 170px"
         />
-        <el-select v-model="newPriority" style="width: 110px">
-          <el-option label="高优先" value="high" />
-          <el-option label="中优先" value="medium" />
-          <el-option label="低优先" value="low" />
+        <el-select
+          v-model="newPriority"
+          style="width: 110px"
+        >
+          <el-option
+            label="高优先"
+            value="high"
+          />
+          <el-option
+            label="中优先"
+            value="medium"
+          />
+          <el-option
+            label="低优先"
+            value="low"
+          />
         </el-select>
-        <el-button type="primary" size="large" @click="handleAdd">添加</el-button>
+        <el-button
+          type="primary"
+          size="large"
+          @click="handleAdd"
+        >
+          添加
+        </el-button>
       </div>
     </el-card>
 
     <!-- 筛选栏 -->
     <div class="toolbar">
       <el-radio-group v-model="filter">
-        <el-radio-button value="all">全部</el-radio-button>
-        <el-radio-button value="active">未完成</el-radio-button>
-        <el-radio-button value="done">已完成</el-radio-button>
+        <el-radio-button value="all">
+          全部
+        </el-radio-button>
+        <el-radio-button value="active">
+          未完成
+        </el-radio-button>
+        <el-radio-button value="done">
+          已完成
+        </el-radio-button>
       </el-radio-group>
       <span class="count">还有 {{ activeCount }} 件事没做完</span>
     </div>
 
     <!-- 列表区域 -->
-    <div v-loading="loading" class="list">
+    <div
+      v-loading="loading"
+      class="list"
+    >
       <!-- v-for：循环渲染；:key 帮 Vue 高效更新，必须唯一稳定 -->
       <TodoItem
         v-for="todo in filteredTodos"
@@ -129,7 +160,10 @@ onMounted(loadTodos)
         @toggle="handleToggle"
         @delete="handleDelete"
       />
-      <el-empty v-if="!loading && filteredTodos.length === 0" description="没有待办，去添加一条，或者去 AI 助手页说「帮我记一件事」" />
+      <el-empty
+        v-if="!loading && filteredTodos.length === 0"
+        description="没有待办，去添加一条，或者去 AI 助手页说「帮我记一件事」"
+      />
     </div>
   </div>
 </template>

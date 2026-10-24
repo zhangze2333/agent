@@ -15,6 +15,7 @@ messages 里每条消息有 role（角色）：
 key = 你的钱包。写死在代码里一旦推到 GitHub，全世界的爬虫几小时内
 就会扫到它、盗用你的额度。放 .env 文件并加入 .gitignore 是行业标准做法。
 """
+
 import os
 
 from dotenv import load_dotenv
@@ -34,7 +35,9 @@ _base_url = os.getenv("GLM_BASE_URL", "")
 # 还没配 key 时不报错，让待办 CRUD 功能照常能用；聊天接口会给出友好提示
 _api_key = os.getenv("ZHIPU_API_KEY", "")
 if _api_key:
-    client = ZhipuAI(api_key=_api_key, base_url=_base_url) if _base_url else ZhipuAI(api_key=_api_key)
+    client = (
+        ZhipuAI(api_key=_api_key, base_url=_base_url) if _base_url else ZhipuAI(api_key=_api_key)
+    )
 else:
     client = None
 

@@ -12,6 +12,7 @@ routers/todos.py —— 待办增删改查（SQLAlchemy ORM 版 + 数据隔离�
 是后端事故排行榜的常客。防它的唯一正确姿势：**服务端每个查询都带身份过滤**，
 永远不要相信"前端没展示"。
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -46,7 +47,9 @@ def create_todo(
     db: Session = Depends(get_db),
 ):
     """新建待办。注意 user_id 来自登录态，不是请求参数——前端传什么都不算数。"""
-    todo = db_models.Todo(user_id=user.id, title=body.title, due_date=body.due_date, priority=body.priority)
+    todo = db_models.Todo(
+        user_id=user.id, title=body.title, due_date=body.due_date, priority=body.priority
+    )
     db.add(todo)
     db.commit()
     db.refresh(todo)

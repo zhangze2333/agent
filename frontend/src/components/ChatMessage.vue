@@ -42,20 +42,39 @@ function describeAction(action) {
 </script>
 
 <template>
-  <div class="msg-row" :class="msg.role">
-    <div class="avatar">{{ msg.role === 'user' ? '🧑' : '🤖' }}</div>
+  <div
+    class="msg-row"
+    :class="msg.role"
+  >
+    <div class="avatar">
+      {{ msg.role === 'user' ? '🧑' : '🤖' }}
+    </div>
     <div class="bubble">
       <!-- 深度思考块：模型的推理草稿，灰色弱化展示 -->
-      <div v-if="msg.reasoning" class="reasoning">
-        <div class="reasoning-head" @click="expanded = !expanded">
+      <div
+        v-if="msg.reasoning"
+        class="reasoning"
+      >
+        <div
+          class="reasoning-head"
+          @click="expanded = !expanded"
+        >
           <span class="arrow">{{ expanded ? '▾' : '▸' }}</span>
           <span>{{ msg.content ? '💭 已深度思考（点击展开）' : '💭 深度思考中…' }}</span>
         </div>
-        <div v-show="expanded" class="reasoning-body">{{ msg.reasoning }}</div>
+        <div
+          v-show="expanded"
+          class="reasoning-body"
+        >
+          {{ msg.reasoning }}
+        </div>
       </div>
 
       <!-- AI 的回复：如果执行过工具，先显示动作记录 -->
-      <div v-if="msg.actions && msg.actions.length" class="actions">
+      <div
+        v-if="msg.actions && msg.actions.length"
+        class="actions"
+      >
         <el-tag
           v-for="(action, i) in msg.actions"
           :key="i"
@@ -67,7 +86,9 @@ function describeAction(action) {
           {{ describeAction(action) }}
         </el-tag>
       </div>
-      <div class="content">{{ msg.content }}</div>
+      <div class="content">
+        {{ msg.content }}
+      </div>
     </div>
   </div>
 </template>

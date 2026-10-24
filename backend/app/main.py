@@ -16,6 +16,7 @@ FastAPI 是 Web 框架（定义"收到什么请求、返回什么响应"），
 uvicorn 是服务器软件（真正监听 8010 端口、收发网络包）。
 就像"菜谱"和"厨房"的关系。
 """
+
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import TimedRotatingFileHandler
@@ -50,9 +51,7 @@ logging.basicConfig(
 _file_handler = TimedRotatingFileHandler(
     _LOG_DIR / "agent.log", when="midnight", backupCount=14, encoding="utf-8"
 )
-_file_handler.setFormatter(
-    logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
-)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
 logging.getLogger("agent").addHandler(_file_handler)
 
 
@@ -66,7 +65,9 @@ async def lifespan(app: FastAPI):
 
         os.environ["JWT_SECRET"] = secrets.token_hex(32)
         security.JWT_SECRET = os.environ["JWT_SECRET"]
-        logging.getLogger("agent").warning("JWT_SECRET 未配置！已生成临时密钥（重启后所有登录失效）")
+        logging.getLogger("agent").warning(
+            "JWT_SECRET 未配置！已生成临时密钥（重启后所有登录失效）"
+        )
     init_db()
     yield
 

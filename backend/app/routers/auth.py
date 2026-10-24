@@ -6,6 +6,7 @@ routers/auth.py —— 用户注册 / 登录 / 我是谁
 如果分别提示"用户不存在"和"密码错误"，攻击者就能借此枚举哪些用户名注册过。
 这种细节是企业安全规范的常识，叫"防止用户枚举"。
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session

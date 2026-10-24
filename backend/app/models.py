@@ -6,8 +6,8 @@ models.py —— Pydantic 数据模型（HTTP 接口的出入参）
   而不是随手返回 dict——返回结构有了合同，前端和文档（/docs）都受益
 - 新增认证相关模型：注册/登录请求、token 响应
 """
+
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,17 +17,17 @@ class TodoCreate(BaseModel):
     """创建待办时的请求体"""
 
     title: str = Field(..., min_length=1, max_length=200, description="待办内容")
-    due_date: Optional[str] = Field(None, description="截止日期，格式 2026-10-22")
+    due_date: str | None = Field(None, description="截止日期，格式 2026-10-22")
     priority: str = Field("medium", description="优先级: high / medium / low")
 
 
 class TodoUpdate(BaseModel):
     """修改待办时的请求体：所有字段都可选，只改传了的那几项（部分更新）"""
 
-    title: Optional[str] = Field(None, min_length=1, max_length=200)
-    completed: Optional[bool] = None
-    due_date: Optional[str] = None
-    priority: Optional[str] = None
+    title: str | None = Field(None, min_length=1, max_length=200)
+    completed: bool | None = None
+    due_date: str | None = None
+    priority: str | None = None
 
 
 class TodoOut(BaseModel):
@@ -43,7 +43,7 @@ class TodoOut(BaseModel):
     id: int
     title: str
     completed: bool
-    due_date: Optional[str]
+    due_date: str | None
     priority: str
     created_at: datetime
 
@@ -86,4 +86,6 @@ class ChatRequest(BaseModel):
     """
 
     message: str = Field(..., min_length=1, max_length=2000, description="用户对智能体说的话")
-    history: list[ChatMessage] = Field(default_factory=list, max_length=20, description="之前的对话")
+    history: list[ChatMessage] = Field(
+        default_factory=list, max_length=20, description="之前的对话"
+    )

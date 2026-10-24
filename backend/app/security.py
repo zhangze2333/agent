@@ -16,8 +16,9 @@ JWT 内容其实是三段 Base64：头部.载荷.签名。载荷能看到内容�
 所以 JWT_SECRET 绝不能进代码库，只能放 .env。
 ═══════════════════════════════════════════════════════════════════
 """
+
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
@@ -53,7 +54,7 @@ def create_access_token(user: db_models.User) -> str:
     payload = {
         "sub": str(user.id),
         "username": user.username,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=TOKEN_EXPIRE_MINUTES),
+        "exp": datetime.now(UTC) + timedelta(minutes=TOKEN_EXPIRE_MINUTES),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 

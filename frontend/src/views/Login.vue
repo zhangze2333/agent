@@ -59,26 +59,56 @@ function switchMode() {
 
 <template>
   <div class="login-page">
-    <el-card class="login-card" shadow="always">
-      <h2 class="title">🤖 AI 待办助手</h2>
-      <p class="subtitle">{{ mode === 'login' ? '登录你的账号' : '创建一个新账号' }}</p>
+    <el-card
+      class="login-card"
+      shadow="always"
+    >
+      <h2 class="title">
+        🤖 AI 待办助手
+      </h2>
+      <p class="subtitle">
+        {{ mode === 'login' ? '登录你的账号' : '创建一个新账号' }}
+      </p>
 
-      <el-form ref="formRef" :model="form" :rules="rules" size="large" @keyup.enter="handleSubmit">
+      <el-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        size="large"
+        @keyup.enter="handleSubmit"
+      >
         <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" clearable />
+          <el-input
+            v-model="form.username"
+            placeholder="用户名"
+            clearable
+          />
         </el-form-item>
         <el-form-item prop="password">
           <!-- show-password：自带小眼睛切换明文/密文 -->
-          <el-input v-model="form.password" type="password" placeholder="密码" show-password />
+          <el-input
+            v-model="form.password"
+            type="password"
+            placeholder="密码"
+            show-password
+          />
         </el-form-item>
-        <el-button type="primary" class="submit" :loading="loading" @click="handleSubmit">
+        <el-button
+          type="primary"
+          class="submit"
+          :loading="loading"
+          @click="handleSubmit"
+        >
           {{ mode === 'login' ? '登 录' : '注 册' }}
         </el-button>
       </el-form>
 
       <div class="switch">
         <span>{{ mode === 'login' ? '还没有账号？' : '已有账号？' }}</span>
-        <el-link type="primary" @click="switchMode">
+        <el-link
+          type="primary"
+          @click="switchMode"
+        >
           {{ mode === 'login' ? '去注册' : '去登录' }}
         </el-link>
       </div>

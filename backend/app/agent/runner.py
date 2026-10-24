@@ -20,6 +20,7 @@ agent/runner.py —— 智能体主循环（Agent Loop，流式版）
     ("done",   {"reply": 完整回复, "actions": [...]})        一切结束
 ═══════════════════════════════════════════════════════════════════
 """
+
 import json
 import logging
 from datetime import datetime
@@ -171,10 +172,13 @@ def run_agent_stream(user_message: str, history: list | None = None, user_id: in
                 }
             )
 
-    yield "done", {
-        "reply": "这个任务有点复杂，工具调用次数达到上限了，我先停下来。你可以换个说法试试。",
-        "actions": actions,
-    }
+    yield (
+        "done",
+        {
+            "reply": "这个任务有点复杂，工具调用次数达到上限了，我先停下来。你可以换个说法试试。",
+            "actions": actions,
+        },
+    )
 
 
 def run_agent(user_message: str, history: list | None = None, user_id: int | None = None) -> dict:

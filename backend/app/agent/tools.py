@@ -23,7 +23,7 @@ Function Calling 的做法是：
 就可能让大模型真的传别人的 id。**安全参数永远由服务端注入，不信任模型输出**
 ═══════════════════════════════════════════════════════════════════
 """
-import json
+
 import logging
 
 from sqlalchemy import select
@@ -128,7 +128,9 @@ def _get_todo_for_user(db, todo_id: int, user_id: int) -> db_models.Todo | None:
 # 工具实现：第一个参数都是 user_id（由 execute_tool 注入）
 # 每个函数自建 Session（工具可能被循环多次调用，各自独立更稳）
 # ─────────────────────────────────────────────
-def _add_todo(user_id: int, title: str, due_date: str | None = None, priority: str = "medium") -> dict:
+def _add_todo(
+    user_id: int, title: str, due_date: str | None = None, priority: str = "medium"
+) -> dict:
     with SessionLocal() as db:
         todo = db_models.Todo(user_id=user_id, title=title, due_date=due_date, priority=priority)
         db.add(todo)

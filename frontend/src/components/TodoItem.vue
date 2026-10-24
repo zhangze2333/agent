@@ -2,10 +2,9 @@
 TodoItem.vue —— 单条待办（子组件）
 
 【知识点：组件之间怎么传数据？—— props 向下、emit 向上】
-  父组件(TodoList) --props--> 子组件(TodoItem)：传数据
-  子组件 --emit 事件--> 父组件：报告"我被点了"，由父组件决定怎么改数据
-  永远不要在子组件里直接改 props 的值，这叫"单向数据流"，数据流向清晰不混乱
--->
+  父组件(TodoList) --props-->
+子组件(TodoItem)：传数据 子组件 --emit 事件--> 父组件：报告"我被点了"，由父组件决定怎么改数据
+永远不要在子组件里直接改 props 的值，这叫"单向数据流"，数据流向清晰不混乱 -->
 <script setup>
 import { computed } from 'vue'
 
@@ -27,17 +26,30 @@ const priorityInfo = computed(() => priorityMap[props.todo.priority] || priority
 </script>
 
 <template>
-  <div class="todo-item" :class="{ done: todo.completed }">
+  <div
+    class="todo-item"
+    :class="{ done: todo.completed }"
+  >
     <!-- .stop 阻止事件冒泡；勾选框切换完成状态 -->
     <el-checkbox
       :model-value="todo.completed"
       @change="emit('toggle', todo)"
     />
     <span class="title">{{ todo.title }}</span>
-    <el-tag v-if="todo.due_date" size="small" type="info" effect="plain">
+    <el-tag
+      v-if="todo.due_date"
+      size="small"
+      type="info"
+      effect="plain"
+    >
       📅 {{ todo.due_date }}
     </el-tag>
-    <el-tag size="small" :type="priorityInfo.type">{{ priorityInfo.label }}优先</el-tag>
+    <el-tag
+      size="small"
+      :type="priorityInfo.type"
+    >
+      {{ priorityInfo.label }}优先
+    </el-tag>
     <el-button
       type="danger"
       text

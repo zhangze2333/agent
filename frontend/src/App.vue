@@ -22,13 +22,31 @@ function handleLogout() {
 <template>
   <el-container class="layout">
     <el-header class="header">
-      <div class="logo">🤖 AI 待办助手</div>
+      <div class="logo">
+        🤖 AI 待办助手
+      </div>
       <nav class="nav">
-        <router-link to="/" class="nav-link">📋 待办列表</router-link>
-        <router-link to="/chat" class="nav-link">💬 AI 助手</router-link>
+        <router-link
+          to="/"
+          class="nav-link"
+        >
+          📋 待办列表
+        </router-link>
+        <router-link
+          to="/chat"
+          class="nav-link"
+        >
+          💬 AI 助手
+        </router-link>
         <template v-if="auth.token">
           <span class="user-chip">👤 {{ auth.username }}</span>
-          <el-button text size="small" @click="handleLogout">退出</el-button>
+          <el-button
+            text
+            size="small"
+            @click="handleLogout"
+          >
+            退出
+          </el-button>
         </template>
       </nav>
     </el-header>

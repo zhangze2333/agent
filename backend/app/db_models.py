@@ -10,6 +10,7 @@ db_models.py —— ORM 模型（数据库表的定义）
 【Mapped / mapped_column 是 SQLAlchemy 2.0 的新写法】
 带类型提示，IDE 能推断 row.user_id 是 int，比旧写法 Column() 舒服很多。
 """
+
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, func
@@ -27,7 +28,8 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now()  # 由数据库生成创建时间
+        DateTime,
+        server_default=func.now(),  # 由数据库生成创建时间
     )
 
 

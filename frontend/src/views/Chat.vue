@@ -15,11 +15,11 @@ import { nextTick, reactive, ref } from 'vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import { auth } from '../stores/auth'
 
-const messages = ref([])      // 对话记录：[{role, content, actions}]
+const messages = ref([]) // 对话记录：[{role, content, actions}]
 const input = ref('')
-const sending = ref(false)    // true 时禁用输入，防连发
-const steps = ref([])         // 执行过程清单：[{text, state}]，像 todo 列表一样逐条打勾
-const listRef = ref(null)     // 消息列表的 DOM，用来自动滚动
+const sending = ref(false) // true 时禁用输入，防连发
+const steps = ref([]) // 执行过程清单：[{text, state}]，像 todo 列表一样逐条打勾
+const listRef = ref(null) // 消息列表的 DOM，用来自动滚动
 
 async function scrollToBottom() {
   await nextTick() // 等 Vue 把新消息渲染到页面上再滚动
@@ -185,30 +185,69 @@ function quickAsk(text) {
 <template>
   <div class="chat-page">
     <!-- 消息列表 -->
-    <div ref="listRef" class="msg-list">
-      <div v-if="messages.length === 0" class="welcome">
+    <div
+      ref="listRef"
+      class="msg-list"
+    >
+      <div
+        v-if="messages.length === 0"
+        class="welcome"
+      >
         <h2>你好，我是你的待办助手 🤖</h2>
         <p>直接用说话的方式管理待办，比如：</p>
         <div class="examples">
-          <el-button plain size="small" @click="quickAsk('帮我记一下：明天上午十点开会')">帮我记一下：明天上午十点开会</el-button>
-          <el-button plain size="small" @click="quickAsk('帮我记一下买牛奶')">帮我记一下买牛奶（试试不提时间）</el-button>
-          <el-button plain size="small" @click="quickAsk('我现在都有哪些事没做完？')">我现在都有哪些事没做完？</el-button>
+          <el-button
+            plain
+            size="small"
+            @click="quickAsk('帮我记一下：明天上午十点开会')"
+          >
+            帮我记一下：明天上午十点开会
+          </el-button>
+          <el-button
+            plain
+            size="small"
+            @click="quickAsk('帮我记一下买牛奶')"
+          >
+            帮我记一下买牛奶（试试不提时间）
+          </el-button>
+          <el-button
+            plain
+            size="small"
+            @click="quickAsk('我现在都有哪些事没做完？')"
+          >
+            我现在都有哪些事没做完？
+          </el-button>
         </div>
       </div>
 
-      <ChatMessage v-for="(msg, i) in messages" :key="i" :msg="msg" />
+      <ChatMessage
+        v-for="(msg, i) in messages"
+        :key="i"
+        :msg="msg"
+      />
 
       <!-- 智能体执行过程：todo 列表式清单，进行中转圈、完成打绿勾，完成后保留 -->
-      <div v-if="steps.length" class="steps-card">
-        <div class="steps-title">🤖 执行过程</div>
+      <div
+        v-if="steps.length"
+        class="steps-card"
+      >
+        <div class="steps-title">
+          🤖 执行过程
+        </div>
         <div
           v-for="(s, i) in steps"
           :key="i"
           class="step-row"
           :class="{ active: s.state === 'active', done: s.state === 'done' }"
         >
-          <span v-if="s.state === 'done'" class="check-badge">✓</span>
-          <span v-else class="spinner"></span>
+          <span
+            v-if="s.state === 'done'"
+            class="check-badge"
+          >✓</span>
+          <span
+            v-else
+            class="spinner"
+          />
           <span class="step-text">{{ s.text }}</span>
         </div>
       </div>
@@ -223,7 +262,12 @@ function quickAsk(text) {
         :disabled="sending"
         @keyup.enter="handleSend"
       />
-      <el-button type="primary" size="large" :loading="sending" @click="handleSend">
+      <el-button
+        type="primary"
+        size="large"
+        :loading="sending"
+        @click="handleSend"
+      >
         发送
       </el-button>
     </div>
